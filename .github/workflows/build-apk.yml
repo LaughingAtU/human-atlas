@@ -34,6 +34,10 @@ jobs:
           npx cap init "Human Atlas" "com.ashemag.humanatlas" --web-dir dist
           npx cap add android
 
+      - name: Clean Duplicate Assets
+        run: |
+          rm -f android/app/src/main/assets/public/models/*.gz
+
       - name: Build APK
         run: |
           cd android

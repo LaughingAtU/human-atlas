@@ -1,4 +1,4 @@
-name: Build Android APK (Final Fix)
+name: Build Android APK (Hardcore Patch)
 
 on:
   workflow_dispatch:
@@ -25,23 +25,26 @@ jobs:
       - name: Install dependencies
         run: npm install --ignore-scripts
 
-      - name: Extract Models & Patch Code
-        run: |
-          # 1. Ekstrak paksa semua model 3D dari .gz menjadi .bin mentah
-          find public/models -name "*.gz" -exec gunzip -f {} +
-          
-          # 2. Ubah kode program agar memuat file .bin (bukan .bin.gz)
-          find . -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" \) -exec sed -i 's/\.bin\.gz/\.bin/g' {} +
-
+      # 1. Biarkan aplikasi di-build secara normal terlebih dahulu
       - name: Build Web App
         run: npm run build
 
-      - name: Install, Init & Configure Capacitor
+      # 2. HACKING: Retas kode dan file hasil build (di dalam folder dist)
+      - name: Hardcore Patch Final Compiled Code
+        run: |
+          # Ekstrak semua file model 3D (.gz) menjadi file mentah (.bin)
+          find dist -type f -name "*.gz" -exec gunzip -f {} +
+          
+          # Timpa teks .bin.gz menjadi .bin di seluruh sistem kode hasil akhir
+          find dist -type f \( -name "*.js" -o -name "*.html" -o -name "*.json" \) -exec sed -i 's/\.bin\.gz/\.bin/g' {} +
+
+      # 3. Bungkus menjadi APK dengan konfigurasi keamanan khusus
+      - name: Install & Configure Capacitor
         run: |
           npm install @capacitor/core @capacitor/cli @capacitor/android
           npx cap init "Human Atlas" "com.ashemag.humanatlas" --web-dir dist
           
-          # Tulis ulang konfigurasi Capacitor
+          # Paksa WebView Android menggunakan HTTPS agar tidak terblokir sistem CORS
           cat <<EOF > capacitor.config.ts
           import { CapacitorConfig } from '@capacitor/cli';
           const config: CapacitorConfig = {
@@ -49,7 +52,7 @@ jobs:
             appName: 'Human Atlas',
             webDir: 'dist',
             server: {
-              androidScheme: 'http',
+              androidScheme: 'https',
               cleartext: true
             }
           };
@@ -67,5 +70,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: human-atlas-final
+          name: human-atlas-hardcore
           path: android/app/build/outputs/apk/debug/app-debug.apk

@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Android APK (Patched)
 
 on:
   workflow_dispatch:
@@ -25,18 +25,37 @@ jobs:
       - name: Install dependencies
         run: npm install --ignore-scripts
 
+      - name: Patch Source Code & Remove .gz
+        run: |
+          # Hapus file kompresi bawaan dari folder agar tidak duplikat di Android
+          find public/models -type f -name "*.gz" -delete
+          # Modifikasi paksa kode sumber TypeScript untuk membaca .bin, bukan .bin.gz
+          find src -type f -name "*.ts" -o -name "*.tsx" -exec sed -i 's/\.bin\.gz/\.bin/g' {} +
+
       - name: Build Web App
         run: npm run build
 
-      - name: Install & Init Capacitor
+      - name: Install, Init & Configure Capacitor
         run: |
           npm install @capacitor/core @capacitor/cli @capacitor/android
           npx cap init "Human Atlas" "com.ashemag.humanatlas" --web-dir dist
+          
+          # Tulis ulang konfigurasi agar keamanan Android mengizinkan muat file 3D
+          cat <<EOF > capacitor.config.ts
+          import { CapacitorConfig } from '@capacitor/cli';
+          const config: CapacitorConfig = {
+            appId: 'com.ashemag.humanatlas',
+            appName: 'Human Atlas',
+            webDir: 'dist',
+            server: {
+              androidScheme: 'http',
+              cleartext: true
+            }
+          };
+          export default config;
+          EOF
+          
           npx cap add android
-
-      - name: Clean Duplicate Assets
-        run: |
-          rm -f android/app/src/main/assets/public/models/*.gz
 
       - name: Build APK
         run: |
@@ -47,5 +66,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: human-atlas-apk
+          name: human-atlas-fixed
           path: android/app/build/outputs/apk/debug/app-debug.apk
